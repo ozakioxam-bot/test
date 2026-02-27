@@ -1,0 +1,53 @@
+name: X投稿取得
+
+  on:
+    workflow_dispatch:
+      inputs:
+        username:
+          description: 'Xユーザー名（@なし）'
+          required: true
+          default: 'zaki_kun_chan'
+        keyword:
+          description: 'キーワード（空白で全件）'
+          required: false
+          default: ''
+        max_results:
+          description: '最大取得件数（5〜500）'
+          required: false
+          default: '50'
+    schedule:
+      - cron: '0 0 * * *'
+
+  jobs:
+    fetch:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-python@v5
+          with:
+            python-version: '3.12'
+        - name: 依存パッケージをインストール
+          run: pip install -r requirements.txt
+        - name: X投稿を取得
+          env:
+            X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+            DEFAULT_USERNAME: zaki_kun_chan
+            DEFAULT_MAX_RESULTS: '50'
+          run: |
+            USERNAME="${{ github.event.inputs.username ||
+  env.DEFAULT_USERNAME }}"
+            KEYWORD="${{ github.event.inputs.keyword }}"
+            MAX_RESULTS="${{ github.event.inputs.max_results ||
+  env.DEFAULT_MAX_RESULTS }}"
+            ARGS="--username $USERNAME --max-results
+  $MAX_RESULTS"
+            if [ -n "$KEYWORD" ]; then
+              ARGS="$ARGS --keyword $KEYWORD"
+            fi
+            python -X utf8 -m src.main $ARGS
+        - name: MD ファイルを保存
+          uses: actions/upload-artifact@v4
+          with:
+            name: posts-${{ github.run_number }}
+            path: output/posts/
+            retention-days: 30
