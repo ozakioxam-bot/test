@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X投稿取得ツール</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 8px;
+      padding: 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid #1da1f2;
+      padding-bottom: 0.5rem;
+    }
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      margin-top: 1rem;
+    }
+    label .required {
+      color: #e53e3e;
+      margin-left: 0.25rem;
+    }
+    input[type="text"], input[type="number"], input[type="datetime-local"] {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.95rem;
+    }
+    input:focus {
+      outline: none;
+      border-color: #1da1f2;
+      box-shadow: 0 0 0 2px rgba(29,161,242,0.2);
+    }
+    .hint {
+      font-size: 0.78rem;
+      color: #666;
+      margin-top: 0.2rem;
+    }
+    button#fetchBtn {
+      margin-top: 1.5rem;
+      width: 100%;
+      padding: 0.7rem;
+      background: #1da1f2;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button#fetchBtn:hover { background: #0d8de0; }
+    button#fetchBtn:disabled { background: #90caf9; cursor: not-allowed; }
+    #result {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      border-radius: 4px;
+      display: none;
+    }
+    #result.success {
+      background: #e6f4ea;
+      border: 1px solid #a8d5b5;
+    }
+    #result.error {
+      background: #fdecea;
+      border: 1px solid #f5c6cb;
+    }
+    #result .result-msg {
+      font-size: 0.95rem;
+      margin-bottom: 0.75rem;
+    }
+    #downloadBtn {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background: #38a169;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    #downloadBtn:hover { background: #2f855a; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>X投稿取得ツール</h1>
+    <form id="fetchForm" novalidate>
+      <label for="username">ユーザー名 <span class="required">*</span></label>
+      <input type="text" id="username" placeholder="例: elonmusk（@なし）" autocomplete="off">
+
+      <label for="keyword">キーワード</label>
+      <input type="text" id="keyword" placeholder="例: AI（空白で全件取得）" autocomplete="off">
+
+      <label for="start_time">開始日時</label>
+      <input type="datetime-local" id="start_time">
+      <p class="hint">空白で制限なし</p>
+
+      <label for="end_time">終了日時</label>
+      <input type="datetime-local" id="end_time">
+      <p class="hint">空白で現在まで</p>
+
+      <label for="max_results">最大取得件数</label>
+      <input type="number" id="max_results" value="50" min="5" max="500">
+      <p class="hint">5〜500（デフォルト: 50）</p>
+
+      <button type="submit" id="fetchBtn">取得する</button>
+    </form>
+
+    <div id="result">
+      <p class="result-msg" id="resultMsg"></p>
+      <a id="downloadBtn" style="display:none">MDファイルをダウンロード</a>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("fetchForm");
+    const fetchBtn = document.getElementById("fetchBtn");
+    const resultDiv = document.getElementById("result");
+    const resultMsg = document.getElementById("resultMsg");
+    const downloadBtn = document.getElementById("downloadBtn");
+
+    // datetime-local の値を ISO 8601 UTC 文字列に変換する
+    function toIsoUtc(localValue) {
+      if (!localValue) return "";
+      // datetime-local は "YYYY-MM-DDTHH:MM" 形式
+      const d = new Date(localValue);
+      if (isNaN(d.getTime())) return "";
+      return d.toISOString(); // UTC の ISO 文字列
+    }
+
+    function showResult(type, message, filename) {
+      resultDiv.style.display = "block";
+      resultDiv.className = type; // "success" or "error"
+      resultMsg.textContent = message; // XSS防止: textContent を使用
+
+      if (type === "success" && filename) {
+        downloadBtn.style.display = "inline-block";
+        downloadBtn.href = "/download/" + encodeURIComponent(filename);
+        downloadBtn.download = filename;
+      } else {
+        downloadBtn.style.display = "none";
+        downloadBtn.removeAttribute("href");
+      }
+    }
+
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const username = document.getElementById("username").value.trim();
+      if (!username) {
+        showResult("error", "ユーザー名は必須です。", null);
+        return;
+      }
+
+      const maxResultsRaw = parseInt(document.getElementById("max_results").value, 10);
+      if (isNaN(maxResultsRaw) || maxResultsRaw < 5 || maxResultsRaw > 500) {
+        showResult("error", "最大取得件数は5〜500の整数で指定してください。", null);
+        return;
+      }
+
+      fetchBtn.disabled = true;
+      fetchBtn.textContent = "取得中...";
+      resultDiv.style.display = "none";
+
+      const payload = {
+        username: username,
+        keyword: document.getElementById("keyword").value.trim(),
+        start_time: toIsoUtc(document.getElementById("start_time").value),
+        end_time: toIsoUtc(document.getElementById("end_time").value),
+        max_results: maxResultsRaw,
+      };
+
+      try {
+        const resp = await fetch("/fetch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const json = await resp.json();
+
+        if (!resp.ok || json.error) {
+          showResult("error", json.error || "エラーが発生しました。", null);
+        } else {
+          showResult(
+            "success",
+            json.count + " 件の投稿を取得しました。",
+            json.filename
+          );
+        }
+      } catch (err) {
+        showResult("error", "サーバーとの通信に失敗しました。", null);
+      } finally {
+        fetchBtn.disabled = false;
+        fetchBtn.textContent = "取得する";
+      }
+    });
+  </script>
+</body>
+</html>

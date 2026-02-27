@@ -1,0 +1,14 @@
+# X投稿取得・自動配信ツール — 環境変数テンプレート
+# このファイルをコピーして .env を作成し、各値を入力してください
+# cp .env.example .env
+#
+# 警告: .env ファイルは絶対にチャット・Git・共有ストレージに貼り付けないこと（DCP Tier 1）
+
+# X API v2 認証情報
+# https://developer.twitter.com/en/portal/dashboard で取得
+X_BEARER_TOKEN=
+
+# メール配信設定（擬似配信のため実際のSMTP不要）
+# 送信者として表示される名前とアドレス
+MAIL_FROM_NAME=X投稿レポート
+MAIL_FROM_ADDRESS=report@example.com

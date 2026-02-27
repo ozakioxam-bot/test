@@ -1,0 +1,22 @@
+# 環境変数（APIキー）- 絶対にコミットしない
+.env
+
+# Python キャッシュ
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# 出力ファイル（取得した投稿データ）
+output/
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code 内部ファイル
+.claude/
+
+# エージェント関連
+.agents/
+agent-orchestrator-starter-main/
