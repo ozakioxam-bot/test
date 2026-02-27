@@ -40,7 +40,6 @@ jobs:
       - name: X投稿を取得
         env:
           X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
-          # スケジュール実行時のデフォルト値
           DEFAULT_USERNAME: zaki_kun_chan
           DEFAULT_MAX_RESULTS: '50'
         run: |
